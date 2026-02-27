@@ -19,15 +19,18 @@ public sealed class SignalFeedService
     public async Task<IReadOnlyCollection<SignalEntity>> GetVisibleSignalsAsync(SignalTier userTier, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
-        var query = _dbContext.Signals.AsNoTracking().OrderByDescending(s => s.CreatedAt);
+        var query = _dbContext.Signals.AsNoTracking();
 
         var visible = await query.Where(signal =>
                 userTier == SignalTier.ProPlus ||
                 (userTier == SignalTier.Pro && signal.CreatedAt <= now - ProDelay) ||
                 (userTier == SignalTier.Free && signal.CreatedAt <= now - FreeDelay))
-            .Take(100)
             .ToListAsync(cancellationToken);
 
-        return visible.Where(signal => signal.MinimumTier <= userTier).ToArray();
+        return visible
+            .Where(signal => signal.MinimumTier <= userTier)
+            .OrderByDescending(signal => signal.CreatedAt)
+            .Take(100)
+            .ToArray();
     }
 }
