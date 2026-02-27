@@ -21,11 +21,14 @@ public sealed class SignalFeedService
         var now = DateTimeOffset.UtcNow;
         var query = _dbContext.Signals.AsNoTracking();
 
-        var visible = await query.Where(signal =>
-                userTier == SignalTier.ProPlus ||
-                (userTier == SignalTier.Pro && signal.CreatedAt <= now - ProDelay) ||
-                (userTier == SignalTier.Free && signal.CreatedAt <= now - FreeDelay))
-            .ToListAsync(cancellationToken);
+        query = userTier switch
+        {
+            SignalTier.ProPlus => query,
+            SignalTier.Pro => query.Where(signal => signal.CreatedAt <= now - ProDelay),
+            _ => query.Where(signal => signal.CreatedAt <= now - FreeDelay)
+        };
+
+        var visible = await query.ToListAsync(cancellationToken);
 
         return visible
             .Where(signal => signal.MinimumTier <= userTier)
