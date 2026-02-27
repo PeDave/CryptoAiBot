@@ -49,7 +49,7 @@ using (var scope = app.Services.CreateScope())
     var db = services.GetRequiredService<AppDbContext>();
     var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 
-    var hasMigrations = (await db.Database.GetMigrationsAsync()).Any();
+    var hasMigrations = db.Database.GetMigrations().Any();
     if (hasMigrations)
     {
         await db.Database.MigrateAsync();
