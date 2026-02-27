@@ -3,6 +3,7 @@ using CryptoAiBot.Web.Data;
 using CryptoAiBot.Web.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +47,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var db = services.GetRequiredService<AppDbContext>();
+    var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 
     var hasMigrations = (await db.Database.GetMigrationsAsync()).Any();
     if (hasMigrations)
@@ -54,6 +56,16 @@ using (var scope = app.Services.CreateScope())
     }
     else
     {
+        var hasAnyTables = await DatabaseHasAnyTablesAsync(db);
+        var hasRolesTable = await DatabaseHasTableAsync(db, "AspNetRoles");
+
+        if (hasAnyTables && !hasRolesTable)
+        {
+            logger.LogWarning(
+                "Existing SQLite database schema is incomplete (missing AspNetRoles). Recreating the database because no EF migrations were found.");
+            await db.Database.EnsureDeletedAsync();
+        }
+
         await db.Database.EnsureCreatedAsync();
     }
 
@@ -65,3 +77,29 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static async Task<bool> DatabaseHasAnyTablesAsync(AppDbContext db)
+{
+    await using var connection = db.Database.GetDbConnection();
+    await connection.OpenAsync();
+    await using var command = connection.CreateCommand();
+    command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND rootpage IS NOT NULL;";
+    var count = (long)(await command.ExecuteScalarAsync() ?? 0L);
+    return count > 0;
+}
+
+static async Task<bool> DatabaseHasTableAsync(AppDbContext db, string tableName)
+{
+    await using var connection = db.Database.GetDbConnection();
+    await connection.OpenAsync();
+    await using var command = connection.CreateCommand();
+    command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $tableName;";
+
+    var parameter = command.CreateParameter();
+    parameter.ParameterName = "$tableName";
+    parameter.Value = tableName;
+    command.Parameters.Add(parameter);
+
+    var count = (long)(await command.ExecuteScalarAsync() ?? 0L);
+    return count > 0;
+}
