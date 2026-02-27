@@ -1,0 +1,21 @@
+@page
+@model CryptoAiBot.Web.Pages.Signals.IndexModel
+
+<h2>Szignál feed</h2>
+<table>
+    <thead>
+    <tr><th>Symbol</th><th>Stratégia</th><th>Horizon</th><th>Leírás</th><th>Létrehozva</th></tr>
+    </thead>
+    <tbody>
+    @foreach (var signal in Model.Signals)
+    {
+        <tr>
+            <td>@signal.Symbol</td>
+            <td>@signal.StrategyName</td>
+            <td>@signal.Horizon</td>
+            <td>@signal.Narrative</td>
+            <td>@signal.CreatedAt</td>
+        </tr>
+    }
+    </tbody>
+</table>
