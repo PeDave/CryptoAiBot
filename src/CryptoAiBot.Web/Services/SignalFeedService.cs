@@ -19,13 +19,15 @@ public sealed class SignalFeedService
     public async Task<IReadOnlyCollection<SignalEntity>> GetVisibleSignalsAsync(SignalTier userTier, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
+        var proCutoff = now.Add(-ProDelay);
+        var freeCutoff = now.Add(-FreeDelay);
         var query = _dbContext.Signals.AsNoTracking();
 
         query = userTier switch
         {
             SignalTier.ProPlus => query,
-            SignalTier.Pro => query.Where(signal => signal.CreatedAt <= now - ProDelay),
-            _ => query.Where(signal => signal.CreatedAt <= now - FreeDelay)
+            SignalTier.Pro => query.Where(signal => signal.CreatedAt <= proCutoff),
+            _ => query.Where(signal => signal.CreatedAt <= freeCutoff)
         };
 
         var visible = await query.ToListAsync(cancellationToken);
